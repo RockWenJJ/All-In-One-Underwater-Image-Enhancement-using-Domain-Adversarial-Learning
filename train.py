@@ -7,8 +7,10 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from torchvision import transforms
 from torchvision.utils import save_image
-from skimage.measure import compare_ssim as ssim
-from skimage.measure import compare_psnr as psnr
+# from skimage.measure import compare_ssim as ssim
+# from skimage.measure import compare_psnr as psnr
+from skimage.metrics import structural_similarity as ssim
+from skimage.metrics import peak_signal_noise_ratio as psnr
 import os
 from PIL import Image
 from dataset.dataset import NYUUWDataset
@@ -19,6 +21,8 @@ import numpy as np
 from models.networks import Classifier, UNetEncoder, UNetDecoder
 import click
 import datetime
+import argparse
+import wandb
 
 def to_img(x):
 	"""
@@ -145,34 +149,63 @@ def calc_adv_loss(fN_out, num_classes, neg_entropy):
 		fN_out_log_softmax = F.log_softmax(fN_out, dim=1)
 		return -torch.mean(torch.div(torch.sum(fN_out_log_softmax, 1), num_classes))
 
-@click.command()
-@click.argument('name')
-@click.option('--data_path', default=None, help='Path of training input data')
-@click.option('--label_path', default=None, help='Path of training label data')
-@click.option('--learning_rate', default=1e-3, help='Learning rate')
-@click.option('--batch_size', default=4, help='Batch size')
-@click.option('--save_interval', default=5, help='Save models after this many epochs')
-@click.option('--start_epoch', default=1, help='Start training from this epoch')
-@click.option('--end_epoch', default=200, help='Train till this epoch')
-@click.option('--num_classes', default=6, help='Number of water types')
-@click.option('--num_channels', default=3, help='Number of input image channels')
-@click.option('--train_size', default=30000, help='Size of the training dataset')
-@click.option('--test_size', default=3000, help='Size of the testing dataset')
-@click.option('--val_size', default=3000, help='Size of the validation dataset')
-@click.option('--fe_load_path', default=None, help='Load path for pretrained fN')
-@click.option('--fi_load_path', default=None, help='Load path for pretrained fE')
-@click.option('--fn_load_path', default=None, help='Load path for pretrained fN')
-@click.option('--lambda_i_loss', default=100.0, help='Lambda for I loss')
-@click.option('--lambda_n_loss', default=1.0, help='Lambda for N loss')
-@click.option('--lambda_adv_loss', default=1.0, help='Lambda for adv loss')
-@click.option('--fi_threshold', default=0.9, help='Train fI till this threshold')
-@click.option('--fn_threshold', default=0.85, help='Train fN till this threshold')
-@click.option('--continue_train', is_flag=True, help='Continue training from start_epoch')
-@click.option('--neg_entropy', default=True, help='Use KL divergence instead of cross entropy with uniform distribution')
-@click.option('--no_adv_loss', is_flag=True, help='Use adversarial loss during training or not')
-def main(name, data_path, label_path, learning_rate, batch_size, save_interval, start_epoch, end_epoch, num_classes, num_channels,
- train_size, test_size, val_size, fe_load_path, fi_load_path, fn_load_path, lambda_i_loss, lambda_n_loss, lambda_adv_loss, 
- fi_threshold, fn_threshold, continue_train, neg_entropy, no_adv_loss):
+def config_parser():
+	parser = argparse.ArgumentParser()
+	parser.add_argument('--name', type=str, default='default', help='Path of training input data')
+	parser.add_argument('--data_path', type=str, default=None, help='Path of training input data')
+	parser.add_argument('--label_path', type=str, default=None, help='Path of training label data')
+	parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate')
+	parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
+	parser.add_argument('--save_interval', type=int, default=5, help='Save models after this many epochs')
+	parser.add_argument('--start_epoch', type=int, default=1, help='Start training from this epoch')
+	parser.add_argument('--end_epoch', type=int, default=200, help='Train till this epoch')
+	parser.add_argument('--num_classes', type=int, default=6, help='Number of water types')
+	parser.add_argument('--num_channels', type=int, default=3, help='Number of input image channels')
+	parser.add_argument('--train_size', type=int, default=30000, help='Size of the training dataset')
+	parser.add_argument('--test_size', type=int, default=3000, help='Size of the testing dataset')
+	parser.add_argument('--val_size', type=int, default=3000, help='Size of the validation dataset')
+	parser.add_argument('--fe_load_path', type=str, default=None, help='Load path for pretrained fN')
+	parser.add_argument('--fi_load_path', type=str, default=None, help='Load path for pretrained fE')
+	parser.add_argument('--fn_load_path', type=str, default=None, help='Load path for pretrained fN')
+	parser.add_argument('--lambda_i_loss', type=float, default=100.0, help='Lambda for I loss')
+	parser.add_argument('--lambda_n_loss',type=float, default=1.0, help='Lambda for N loss')
+	parser.add_argument('--lambda_adv_loss', type=float, default=1.0, help='Lambda for adv loss')
+	parser.add_argument('--fi_threshold', type=float, default=0.9, help='Train fI till this threshold')
+	parser.add_argument('--fn_threshold', type=float, default=0.85, help='Train fN till this threshold')
+	parser.add_argument('--continue_train', type=bool, default=False, help='Continue training from start_epoch')
+	parser.add_argument('--neg_entropy', type=bool, default=True,
+				  help='Use KL divergence instead of cross entropy with uniform distribution')
+	parser.add_argument('--no_adv_loss', type=bool, default=False, help='Use adversarial loss during training or not')
+	parser.add_argument('--wandb', type=int, default=0, help='whether to use wandb for logging or not')
+	return parser
+
+def main():
+	parser = config_parser()
+	args = parser.parse_args()
+	name = args.name
+	data_path = args.data_path
+	label_path = args.label_path
+	learning_rate = args.learning_rate
+	batch_size = args.batch_size
+	save_interval = args.save_interval
+	start_epoch = args.start_epoch
+	end_epoch = args.end_epoch
+	num_classes = args.num_classes
+	num_channels = args.num_channels
+	train_size = args.train_size
+	test_size = args.test_size
+	val_size = args.val_size
+	fe_load_path = args.fe_load_path
+	fi_load_path = args.fi_load_path
+	fn_load_path = args.fn_load_path
+	lambda_i_loss = args.lambda_i_loss
+	lambda_n_loss = args.lambda_n_loss
+	lambda_adv_loss = args.lambda_adv_loss
+	fi_threshold = args.fi_threshold
+	fn_threshold = args.fn_threshold
+	continue_train = args.continue_train
+	neg_entropy = args.neg_entropy
+	no_adv_loss = args.no_adv_loss
 
 	fE_load_path = fe_load_path
 	fI_load_path = fi_load_path
@@ -183,25 +216,16 @@ def main(name, data_path, label_path, learning_rate, batch_size, save_interval, 
 
 	fI_threshold = fi_threshold
 	fN_threshold = fn_threshold
+	
+	wandb_logger = wandb.init(project='UIE', config=args, name=args.name) if args.wandb else None
 
 	# Define datasets and dataloaders
-	train_dataset = NYUUWDataset(data_path, 
-		label_path, 
-		size=train_size,
-		train_start=0,
-		mode='train')
-
-	val_dataset = NYUUWDataset(data_path, 
-		label_path, 
-		size=val_size,
-		val_start=42000,
-		mode='val')
-
-	test_dataset = NYUUWDataset(data_path, 
-		label_path, 
-		size=test_size,
-		test_start=46000,
-		mode='test')
+	train_path = os.path.join(data_path, 'train')
+	test_path = os.path.join(data_path, 'test')
+	val_path = os.path.join(data_path, 'val')
+	train_dataset = NYUUWDataset(train_path, label_path, mode='train')
+	val_dataset = NYUUWDataset(test_path, label_path, mode='val')
+	test_dataset = NYUUWDataset(val_path, label_path, mode='test')
 
 	train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 	test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=True)
@@ -266,6 +290,7 @@ def main(name, data_path, label_path, learning_rate, batch_size, save_interval, 
 		fN_val_acc = -1
 
 	# Train only the encoder-decoder upto a certain threshold
+	total_step = 0
 	while fI_val_ssim < fI_threshold and not continue_train:
 		epoch = start_epoch
 
@@ -285,27 +310,38 @@ def main(name, data_path, label_path, learning_rate, batch_size, save_interval, 
 			progress = "\tEpoch: {}\tIter: {}\tI_loss: {}".format(epoch, idx, I_loss.item())
 
 			optimizer_fE.step()
-
+			
+			total_step += 1
 			if idx % 50 == 0:
-				save_image(uw_img.cpu().data, './results/uw_img.png')
-				save_image(fI_out.cpu().data, './results/fI_out.png')
+				print(progress)
 
-				print (progress)
-				write_to_log(log_file_path, progress)
+			if total_step % 100 == 0:
+				fi_images = wandb.Image(fI_out.cpu().data)
+				uw_images = wandb.Image(uw_img.cpu().data)
+				cl_images = wandb.Image(cl_img.cpu().data)
+				save_dict = {"train/fI_images": fi_images,
+							 "train/uw_images": uw_images,
+							 "train/cl_images": cl_images,
+							 "train/I_loss": I_loss.item()}
 
-		torch.save(fE.state_dict(), './checkpoints/{}/fE_latest.pth'.format(name))
-		torch.save(fI.state_dict(), './checkpoints/{}/fI_latest.pth'.format(name))
+				# print (progress)
+				wandb.log(save_dict, total_step)
+
+		# torch.save(fE.state_dict(), './checkpoints/{}/fE_latest.pth'.format(name))
+		# torch.save(fI.state_dict(), './checkpoints/{}/fI_latest.pth'.format(name))
 		if epoch % save_interval == 0:
 			torch.save(fE.state_dict(), './checkpoints/{}/fE_{}.pth'.format(name, epoch))
 			torch.save(fI.state_dict(), './checkpoints/{}/fI_{}.pth'.format(name, epoch))
 		
-		status = 'End of epoch. Models saved.'
+		# status = 'End of epoch. Models saved.'
 		print (status)
 		write_to_log(log_file_path, status)
 		
-		fI_val_ssim, _, _, fN_val_acc = compute_val_metrics(fE, fI, fN, val_dataloader, no_adv_loss)
-		
-		start_epoch += 1
+		val_ssim, val_psnr, val_mse, val_acc = compute_val_metrics(fE, fI, fN, val_dataloader, no_adv_loss)
+		wandb.log({"val/ssim": val_ssim,
+				   "val/psnr": val_psnr,
+				   "val/mse": val_mse,
+				   "val/acc": val_acc}, total_step)
 
 	for epoch in range(start_epoch, end_epoch):
 		"""
@@ -318,8 +354,8 @@ def main(name, data_path, label_path, learning_rate, batch_size, save_interval, 
 			"""
 
 			status = 'Avg fI val SSIM: {}, Avg fN val acc: {}\nCurrent fI threshold: {}, Current fN threshold: {}'.format(fI_val_ssim, fN_val_acc, fI_threshold, fN_threshold)
-			print (status)
-			write_to_log(log_file_path, status)
+			# print (status)
+			# write_to_log(log_file_path, status)
 
 		for idx, data in tqdm(enumerate(train_dataloader)):
 			uw_img, cl_img, water_type, _ = data
@@ -344,12 +380,25 @@ def main(name, data_path, label_path, learning_rate, batch_size, save_interval, 
 					progress = "\tEpoch: {}\tIter: {}\tI_loss: {}\tadv_loss: {}".format(epoch, idx, I_loss.item(), adv_loss.item())
 				else:
 					progress = "\tEpoch: {}\tIter: {}\tI_loss: {}".format(epoch, idx, I_loss.item())
+					adv_loss = None
 
 				optimizer_fE.step()
-
+				
 				if idx % 50 == 0:
-					save_image(uw_img.cpu().data, './results/uw_img.png')
-					save_image(fI_out.cpu().data, './results/fI_out.png')
+					print(progress)
+				
+				if total_step % 100 == 0:
+					fi_images = wandb.Image(fI_out.cpu().data)
+					uw_images = wandb.Image(uw_img.cpu().data)
+					cl_images = wandb.Image(cl_img.cpu().data)
+					save_dict = {"train/fI_images": fi_images,
+								 "train/uw_images": uw_images,
+								 "train/cl_images": cl_images,
+								 "train/I_loss": I_loss.item(),
+								 "train/adv_loss": adv_loss.item() if adv_loss else 10.0}
+					
+					# print (progress)
+					wandb.log(save_dict, total_step)
 
 			elif fN_val_acc < fN_threshold:
 				"""
@@ -361,6 +410,9 @@ def main(name, data_path, label_path, learning_rate, batch_size, save_interval, 
 
 				N_loss = backward_N_loss(fN, fE_out, actual_target, criterion_CE, optimizer_fN, lambda_N_loss)
 				progress = "\tEpoch: {}\tIter: {}\tN_loss: {}".format(epoch, idx, N_loss.item())
+				
+				if total_step % 100 == 0:
+					wandb.log({"train/N_loss": N_loss.item()}, total_step)
 
 			else:
 				"""
@@ -381,21 +433,31 @@ def main(name, data_path, label_path, learning_rate, batch_size, save_interval, 
 					progress = "\tEpoch: {}\tIter: {}\tI_loss: {}".format(epoch, idx, I_loss.item())
 
 				optimizer_fE.step()
-
+				
 				if idx % 50 == 0:
-					save_image(uw_img.cpu().data, './results/uw_img.png')
-					save_image(fI_out.cpu().data, './results/fI_out.png')
+					print(progress)
+				
+				if total_step % 100 == 0:
+					fi_images = wandb.Image(fI_out.cpu().data)
+					uw_images = wandb.Image(uw_img.cpu().data)
+					cl_images = wandb.Image(cl_img.cpu().data)
+					save_dict = {"train/fI_images": fi_images,
+								 "train/uw_images": uw_images,
+								 "train/cl_images": cl_images,
+								 "train/I_loss": I_loss.item(),
+								 "train/adv_loss": adv_loss.item()
+								 }
+					
+					# print (progress)
+					wandb.log(save_dict, total_step)
+			total_step += 1
+		
 
-			if idx % 50 == 0:
-				print (progress)
-				write_to_log(log_file_path, progress)
-
-
-		# Save models
-		torch.save(fE.state_dict(), './checkpoints/{}/fE_latest.pth'.format(name))
-		torch.save(fI.state_dict(), './checkpoints/{}/fI_latest.pth'.format(name))
-		if not no_adv_loss:
-			torch.save(fN.state_dict(), './checkpoints/{}/fN_latest.pth'.format(name))
+		# # Save models
+		# torch.save(fE.state_dict(), './checkpoints/{}/fE_latest.pth'.format(name))
+		# torch.save(fI.state_dict(), './checkpoints/{}/fI_latest.pth'.format(name))
+		# if not no_adv_loss:
+		# 	torch.save(fN.state_dict(), './che"ckpoints/{}/fN_latest.pth'.format(name))
 
 		if epoch % save_interval == 0:
 			torch.save(fE.state_dict(), './checkpoints/{}/fE_{}.pth'.format(name, epoch))
@@ -411,11 +473,15 @@ def main(name, data_path, label_path, learning_rate, batch_size, save_interval, 
 			"""
 				Compute the cross validation scores after the epoch
 			"""
-			fI_val_ssim, _, _, fN_val_acc = compute_val_metrics(fE, fI, fN, val_dataloader, no_adv_loss)
+			val_ssim, val_psnr, val_mse, val_acc = compute_val_metrics(fE, fI, fN, val_dataloader, no_adv_loss)
+			wandb.log({"val/ssim": val_ssim,
+					   "val/psnr": val_psnr,
+					   "val/mse": val_mse,
+					   "val/acc": val_acc}, total_step)
 
 if __name__== "__main__":
-	if not os.path.exists('./results'):
-		os.mkdir('./results')
+	# if not os.path.exists('./results'):
+	# 	os.mkdir('./results')
 	if not os.path.exists('./checkpoints'):
 		os.mkdir('./checkpoints')
 

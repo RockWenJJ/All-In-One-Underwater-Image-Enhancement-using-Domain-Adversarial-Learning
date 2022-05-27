@@ -16,8 +16,10 @@ import random
 from torchvision import models
 import matplotlib.pyplot as plt
 import numpy as np
-from skimage.measure import compare_ssim as ssim_fn
-from skimage.measure import compare_psnr as psnr_fn
+# from skimage.measure import compare_ssim as ssim_fn
+# from skimage.measure import compare_psnr as psnr_fn
+from skimage.metrics import structural_similarity as ssim_fn
+from skimage.metrics import peak_signal_noise_ratio as psnr_fn
 from collections import defaultdict
 import click
 

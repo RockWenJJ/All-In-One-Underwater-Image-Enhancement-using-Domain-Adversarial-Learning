@@ -7,8 +7,10 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from torchvision import transforms
 from torchvision.utils import save_image
-from skimage.measure import compare_ssim as ssim
-from skimage.measure import compare_psnr as psnr
+# from skimage.measure import compare_ssim as ssim
+# from skimage.measure import compare_psnr as psnr
+from skimage.metrics import structural_similarity as ssim
+from skimage.metrics import peak_signal_noise_ratio as psnr
 import os
 from PIL import Image
 from tqdm import tqdm

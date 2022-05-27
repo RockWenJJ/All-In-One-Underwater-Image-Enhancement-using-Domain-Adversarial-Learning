@@ -41,17 +41,29 @@ def main(nyu_rgbd_path, dataset_path):
 		if not os.path.exists(label_path):
 			os.mkdir(label_path)
 
-		rand = {"1": 3,
-				"3": 3,
-				"5": 6,
-				"7": 6,
-				"9": 6,
-				"I": 2,
-				"IA": 2,
-				"IB": 2,
-				"II": 3,
-				"III": 3
-		}
+		# rand = {"1": 3,
+		# 		"3": 3,
+		# 		"5": 6,
+		# 		"7": 6,
+		# 		"9": 6,
+		# 		"I": 2,
+		# 		"IA": 2,
+		# 		"IB": 2,
+		# 		"II": 3,
+		# 		"III": 3
+		# }
+
+		rand = {"1": 1,
+				"3": 1,
+				"5": 1,
+				"7": 1,
+				"9": 1,
+				"I": 1,
+				"IA": 1,
+				"IB": 1,
+				"II": 1,
+				"III": 1
+				}
 
 		save_type = {"1": 0,
 					"3": 0,
@@ -78,6 +90,8 @@ def main(nyu_rgbd_path, dataset_path):
 		}
 
 		for idx, org_img in tqdm(enumerate(images)):
+			if idx >= 10:
+				break
 			org_img = org_img.transpose(2,1,0)
 			org_img = org_img / 255.0
 
@@ -104,10 +118,10 @@ def main(nyu_rgbd_path, dataset_path):
 					depth = max_depth[i] * org_depth
 
 					T_x = np.ndarray((480, 640, 3))
-					T_x[:,:,0] = N_lambda[water_type][2] * depth
-					T_x[:,:,1] = N_lambda[water_type][1] * depth
-					T_x[:,:,2] = N_lambda[water_type][0] * depth
-					T_x = (T_x-T_x.min())/(T_x.max()-T_x.min())
+					T_x[:,:,0] = N_lambda[water_type][2] ** depth
+					T_x[:,:,1] = N_lambda[water_type][1] ** depth
+					T_x[:,:,2] = N_lambda[water_type][0] ** depth
+					# T_x = (T_x-T_x.min())/(T_x.max()-T_x.min())
 
 					B_lambda = np.ndarray((480, 640, 3))
 					B_lambda[:,:,0].fill(1.5*N_lambda[water_type][2]**B_rand[i])
