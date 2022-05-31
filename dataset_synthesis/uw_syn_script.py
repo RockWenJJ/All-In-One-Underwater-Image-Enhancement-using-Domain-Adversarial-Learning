@@ -35,22 +35,35 @@ def main():
     images.sort()
     depths.sort()
 
+    # N_lambda = {"1": [0.875, 0.885, 0.75],
+    #             "3": [0.8, 0.82, 0.71],
+    #             "5": [0.67, 0.73, 0.67],
+    #             "7": [0.5, 0.61, 0.62],
+    #             "9": [0.29, 0.46, 0.55],
+    #             "I": [0.982, 0.961, 0.805],
+    #             "IA": [0.975, 0.955, 0.804],
+    #             "IB": [0.968, 0.95, 0.83],
+    #             "II": [0.94, 0.925, 0.8],
+    #             "III": [0.89, 0.885, 0.75]
+    #             }
+
     N_lambda = {"1": [0.875, 0.885, 0.75],
-                "3": [0.8, 0.82, 0.71],
+                # "3": [0.8, 0.82, 0.71],
                 "5": [0.67, 0.73, 0.67],
                 "7": [0.5, 0.61, 0.62],
                 "9": [0.29, 0.46, 0.55],
                 "I": [0.982, 0.961, 0.805],
-                "IA": [0.975, 0.955, 0.804],
-                "IB": [0.968, 0.95, 0.83],
+                # "IA": [0.975, 0.955, 0.804],
+                # "IB": [0.968, 0.95, 0.83],
                 "II": [0.94, 0.925, 0.8],
-                "III": [0.89, 0.885, 0.75]
+                # "III": [0.89, 0.885, 0.75]
                 }
 
-    data_path = os.path.join(args.output_path, 'data')
+    data_path = os.path.join(args.output_path, 'data_mini')
     train_path = os.path.join(data_path, 'train')
     test_path = os.path.join(data_path, 'test')
     val_path = os.path.join(data_path, 'val')
+    orig_path = os.path.join(data_path, 'origin')
     # label_path = os.path.join(args.output_path, 'label')
     # if not os.path.exists(data_path):
     #     os.mkdir(data_path)
@@ -59,31 +72,55 @@ def main():
     os.makedirs(train_path, exist_ok=True)
     os.makedirs(test_path, exist_ok=True)
     os.makedirs(val_path, exist_ok=True)
+    os.makedirs(orig_path, exist_ok=True)
     
 
-    rand = {"1": 3,
-            "3": 3,
-            "5": 6,
-            "7": 6,
-            "9": 6,
-            "I": 2,
-            "IA": 2,
-            "IB": 2,
-            "II": 3,
-            "III": 3
+    # rand = {"1": 3,
+    #         "3": 3,
+    #         "5": 6,
+    #         "7": 6,
+    #         "9": 6,
+    #         "I": 2,
+    #         "IA": 2,
+    #         "IB": 2,
+    #         "II": 3,
+    #         "III": 3
+    #         }
+
+    rand = {"1": 1,
+            # "3": 3,
+            "5": 1,
+            "7": 1,
+            "9": 1,
+            "I": 1,
+            # "IA": 2,
+            # "IB": 2,
+            "II": 1,
+            # "III": 3
             }
     
     # convert 9 water types to 6 new water types
+    # save_type = {"1": 0,
+    #              "3": 0,
+    #              "5": 1,
+    #              "7": 2,
+    #              "9": 3,
+    #              "I": 4,
+    #              "IA": 4,
+    #              "IB": 4,
+    #              "II": 5,
+    #              "III": 5
+    #              }
     save_type = {"1": 0,
-                 "3": 0,
+                 # "3": 0,
                  "5": 1,
                  "7": 2,
                  "9": 3,
                  "I": 4,
-                 "IA": 4,
-                 "IB": 4,
+                 # "IA": 4,
+                 # "IB": 4,
                  "II": 5,
-                 "III": 5
+                 # "III": 5
                  }
 
     water_type_label = {"1": "1, 3",
@@ -108,9 +145,10 @@ def main():
                       6: 0,
                       }
     
-    for i_f, (img_f, dep_f) in tqdm(enumerate(zip(images, depths))):
+    for i_f, (img_f, dep_f) in tqdm(enumerate(zip(images[:500], depths[:500]))):
         idx = int(img_f.split(".png")[0]) # get the image index
         org_img = cv2.imread(os.path.join(args.imgs_path, img_f))
+        cv2.imwrite(os.path.join(orig_path, img_f), org_img)
         org_depth = np.load(os.path.join(args.deps_path, dep_f))
         org_img = org_img / 255.0
         org_depth = (org_depth - org_depth.min()) / (org_depth.max() - org_depth.min())

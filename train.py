@@ -158,7 +158,7 @@ def config_parser():
 	parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
 	parser.add_argument('--save_interval', type=int, default=5, help='Save models after this many epochs')
 	parser.add_argument('--start_epoch', type=int, default=1, help='Start training from this epoch')
-	parser.add_argument('--end_epoch', type=int, default=200, help='Train till this epoch')
+	parser.add_argument('--end_epoch', type=int, default=100, help='Train till this epoch')
 	parser.add_argument('--num_classes', type=int, default=6, help='Number of water types')
 	parser.add_argument('--num_channels', type=int, default=3, help='Number of input image channels')
 	parser.add_argument('--train_size', type=int, default=30000, help='Size of the training dataset')
@@ -170,10 +170,10 @@ def config_parser():
 	parser.add_argument('--lambda_i_loss', type=float, default=100.0, help='Lambda for I loss')
 	parser.add_argument('--lambda_n_loss',type=float, default=1.0, help='Lambda for N loss')
 	parser.add_argument('--lambda_adv_loss', type=float, default=1.0, help='Lambda for adv loss')
-	parser.add_argument('--fi_threshold', type=float, default=0.9, help='Train fI till this threshold')
-	parser.add_argument('--fn_threshold', type=float, default=0.85, help='Train fN till this threshold')
+	parser.add_argument('--fi_threshold', type=float, default=0.7, help='Train fI till this threshold')
+	parser.add_argument('--fn_threshold', type=float, default=0.5, help='Train fN till this threshold')
 	parser.add_argument('--continue_train', type=bool, default=False, help='Continue training from start_epoch')
-	parser.add_argument('--neg_entropy', type=bool, default=True,
+	parser.add_argument('--neg_entropy', type=bool, default=False,
 				  help='Use KL divergence instead of cross entropy with uniform distribution')
 	parser.add_argument('--no_adv_loss', type=bool, default=False, help='Use adversarial loss during training or not')
 	parser.add_argument('--wandb', type=int, default=0, help='whether to use wandb for logging or not')
@@ -284,21 +284,23 @@ def main():
 
 	# Compute the initial cross validation scores
 	if continue_train and not no_adv_loss:
-		fI_val_ssim, _, _, fN_val_acc = compute_val_metrics(fE, fI, fN, val_dataloader, no_adv_loss)
+		val_ssim, _, _, val_acc = compute_val_metrics(fE, fI, fN, val_dataloader, no_adv_loss)
 	else:
-		fI_val_ssim = -1
-		fN_val_acc = -1
+		val_ssim = -1
+		val_acc = -1
 
 	# Train only the encoder-decoder upto a certain threshold
 	total_step = 0
-	while fI_val_ssim < fI_threshold and not continue_train:
-		epoch = start_epoch
+	epoch = start_epoch
+	while val_ssim < fI_threshold and not continue_train:
 
-		status = 'Avg fI val SSIM: {}, Avg fN val acc: {}\nCurrent fI threshold: {}, Current fN threshold: {}'.format(fI_val_ssim, fN_val_acc, fI_threshold, fN_threshold)
+		status = 'Avg fI val SSIM: {}, Avg fN val acc: {}\nCurrent fI threshold: {}, Current fN threshold: {}'.format(val_ssim, val_acc, fI_threshold, fN_threshold)
 		print (status)
 		write_to_log(log_file_path, status)
 
 		for idx, data in tqdm(enumerate(train_dataloader)):
+			# if idx > 1000:
+			# 	break
 			uw_img, cl_img, water_type, _ = data
 			uw_img = Variable(uw_img).cuda()
 			cl_img = Variable(cl_img, requires_grad=False).cuda()
@@ -315,7 +317,7 @@ def main():
 			if idx % 50 == 0:
 				print(progress)
 
-			if total_step % 100 == 0:
+			if total_step % 1000 == 0 and args.wandb:
 				fi_images = wandb.Image(fI_out.cpu().data)
 				uw_images = wandb.Image(uw_img.cpu().data)
 				cl_images = wandb.Image(cl_img.cpu().data)
@@ -325,7 +327,7 @@ def main():
 							 "train/I_loss": I_loss.item()}
 
 				# print (progress)
-				wandb.log(save_dict, total_step)
+				wandb_logger.log(save_dict, total_step)
 
 		# torch.save(fE.state_dict(), './checkpoints/{}/fE_latest.pth'.format(name))
 		# torch.save(fI.state_dict(), './checkpoints/{}/fI_latest.pth'.format(name))
@@ -333,29 +335,25 @@ def main():
 			torch.save(fE.state_dict(), './checkpoints/{}/fE_{}.pth'.format(name, epoch))
 			torch.save(fI.state_dict(), './checkpoints/{}/fI_{}.pth'.format(name, epoch))
 		
-		# status = 'End of epoch. Models saved.'
-		print (status)
-		write_to_log(log_file_path, status)
+		epoch += 1
 		
 		val_ssim, val_psnr, val_mse, val_acc = compute_val_metrics(fE, fI, fN, val_dataloader, no_adv_loss)
-		wandb.log({"val/ssim": val_ssim,
-				   "val/psnr": val_psnr,
-				   "val/mse": val_mse,
-				   "val/acc": val_acc}, total_step)
-
+		if args.wandb:
+			wandb_logger.log({"val/ssim": val_ssim,
+					   "val/psnr": val_psnr,
+					   "val/mse": val_mse,
+					   "val/acc": val_acc}, total_step)
+		
+	
+	start_epoch = epoch + 1
 	for epoch in range(start_epoch, end_epoch):
 		"""
 			Main training loop
 		"""
 
-		if not no_adv_loss:
-			"""
-				Print the current cross-validation scores
-			"""
-
-			status = 'Avg fI val SSIM: {}, Avg fN val acc: {}\nCurrent fI threshold: {}, Current fN threshold: {}'.format(fI_val_ssim, fN_val_acc, fI_threshold, fN_threshold)
-			# print (status)
-			# write_to_log(log_file_path, status)
+		status = 'Avg fI val SSIM: {}, Avg fN val acc: {}\nCurrent fI threshold: {}, Current fN threshold: {}'.format(val_ssim, val_acc, fI_threshold, fN_threshold)
+		print (status)
+		write_to_log(log_file_path, status)
 
 		for idx, data in tqdm(enumerate(train_dataloader)):
 			uw_img, cl_img, water_type, _ = data
@@ -365,7 +363,7 @@ def main():
 			
 			fE_out, enc_outs = fE(uw_img)
 			
-			if fI_val_ssim < fI_threshold:
+			if val_ssim < fI_threshold:
 				"""
 					Train the encoder-decoder only
 				"""
@@ -387,7 +385,7 @@ def main():
 				if idx % 50 == 0:
 					print(progress)
 				
-				if total_step % 100 == 0:
+				if total_step % 1000 == 0 and args.wandb:
 					fi_images = wandb.Image(fI_out.cpu().data)
 					uw_images = wandb.Image(uw_img.cpu().data)
 					cl_images = wandb.Image(cl_img.cpu().data)
@@ -400,7 +398,7 @@ def main():
 					# print (progress)
 					wandb.log(save_dict, total_step)
 
-			elif fN_val_acc < fN_threshold:
+			elif val_acc < fN_threshold:
 				"""
 					Train the nusiance classifier only
 				"""
@@ -410,9 +408,11 @@ def main():
 
 				N_loss = backward_N_loss(fN, fE_out, actual_target, criterion_CE, optimizer_fN, lambda_N_loss)
 				progress = "\tEpoch: {}\tIter: {}\tN_loss: {}".format(epoch, idx, N_loss.item())
+				if idx % 50 == 0:
+					print(progress)
 				
-				if total_step % 100 == 0:
-					wandb.log({"train/N_loss": N_loss.item()}, total_step)
+				if total_step % 1000 == 0 and args.wandb:
+					wandb_logger.log({"train/N_loss": N_loss.item()}, total_step)
 
 			else:
 				"""
@@ -437,7 +437,7 @@ def main():
 				if idx % 50 == 0:
 					print(progress)
 				
-				if total_step % 100 == 0:
+				if total_step % 1000 == 0 and args.wandb:
 					fi_images = wandb.Image(fI_out.cpu().data)
 					uw_images = wandb.Image(uw_img.cpu().data)
 					cl_images = wandb.Image(cl_img.cpu().data)
@@ -449,7 +449,7 @@ def main():
 								 }
 					
 					# print (progress)
-					wandb.log(save_dict, total_step)
+					wandb_logger.log(save_dict, total_step)
 			total_step += 1
 		
 
@@ -465,19 +465,20 @@ def main():
 			if not no_adv_loss:
 				torch.save(fN.state_dict(), './checkpoints/{}/fN_{}.pth'.format(name, epoch))
 
-		status = 'End of epoch. Models saved.'
-		print (status)
-		write_to_log(log_file_path, status)
+		# status = 'End of epoch. Models saved.'
+		# print (status)
+		# write_to_log(log_file_path, status)
 
 		if not no_adv_loss:
 			"""
 				Compute the cross validation scores after the epoch
 			"""
 			val_ssim, val_psnr, val_mse, val_acc = compute_val_metrics(fE, fI, fN, val_dataloader, no_adv_loss)
-			wandb.log({"val/ssim": val_ssim,
-					   "val/psnr": val_psnr,
-					   "val/mse": val_mse,
-					   "val/acc": val_acc}, total_step)
+			if args.wandb:
+				wandb_logger.log({"val/ssim": val_ssim,
+						   "val/psnr": val_psnr,
+						   "val/mse": val_mse,
+						   "val/acc": val_acc}, total_step)
 
 if __name__== "__main__":
 	# if not os.path.exists('./results'):
