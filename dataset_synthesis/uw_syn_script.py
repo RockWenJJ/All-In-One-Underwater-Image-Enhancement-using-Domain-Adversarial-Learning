@@ -59,7 +59,7 @@ def main():
                 # "III": [0.89, 0.885, 0.75]
                 }
 
-    data_path = os.path.join(args.output_path, 'data_mini')
+    data_path = os.path.join(args.output_path, 'data')
     train_path = os.path.join(data_path, 'train')
     test_path = os.path.join(data_path, 'test')
     val_path = os.path.join(data_path, 'val')
@@ -75,29 +75,29 @@ def main():
     os.makedirs(orig_path, exist_ok=True)
     
 
-    # rand = {"1": 3,
-    #         "3": 3,
-    #         "5": 6,
-    #         "7": 6,
-    #         "9": 6,
-    #         "I": 2,
-    #         "IA": 2,
-    #         "IB": 2,
-    #         "II": 3,
-    #         "III": 3
-    #         }
-
-    rand = {"1": 1,
-            # "3": 3,
-            "5": 1,
-            "7": 1,
-            "9": 1,
-            "I": 1,
-            # "IA": 2,
-            # "IB": 2,
-            "II": 1,
+    rand = {"1": 2,
+            # "3": 1,
+            "5": 2,
+            "7": 2,
+            "9": 2,
+            "I": 2,
+            # "IA": 1,
+            # "IB": 1,
+            "II": 2,
             # "III": 3
             }
+
+    # rand = {"1": 1,
+    #         "3": 3,
+    #         "5": 1,
+    #         "7": 1,
+    #         "9": 1,
+    #         "I": 1,
+    #         "IA": 2,
+    #         "IB": 2,
+    #         "II": 1,
+    #         "III": 3
+    #         }
     
     # convert 9 water types to 6 new water types
     # save_type = {"1": 0,
@@ -145,7 +145,7 @@ def main():
                       6: 0,
                       }
     
-    for i_f, (img_f, dep_f) in tqdm(enumerate(zip(images[:500], depths[:500]))):
+    for i_f, (img_f, dep_f) in tqdm(enumerate(zip(images, depths))):
         idx = int(img_f.split(".png")[0]) # get the image index
         org_img = cv2.imread(os.path.join(args.imgs_path, img_f))
         cv2.imwrite(os.path.join(orig_path, img_f), org_img)
