@@ -26,14 +26,14 @@ def config_parser():
 	parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate')
 	parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
 	parser.add_argument('--save_interval', type=int, default=5, help='Save models after this many epochs')
-	parser.add_argument('--start_epoch', type=int, default=1, help='Start training from this epoch')
+	parser.add_argument('--start_epoch', type=int, default=0, help='Start training from this epoch')
 	parser.add_argument('--end_epoch', type=int, default=200, help='Train till this epoch')
 	parser.add_argument('--num_classes', type=int, default=6, help='Number of water types')
 	parser.add_argument('--num_channels', type=int, default=3, help='Number of input image channels')
 	parser.add_argument('--train_size', type=int, default=30000, help='Size of the training dataset')
 	parser.add_argument('--test_size', type=int, default=3000, help='Size of the testing dataset')
 	parser.add_argument('--val_size', type=int, default=3000, help='Size of the validation dataset')
-	parser.add_argument('--fe_load_path', type=str, default=None, help='Load path for pretrained fN')
+	parser.add_argument('--load_path', type=str, default=None, help='Load path for pretrained model')
 	parser.add_argument('--fi_load_path', type=str, default=None, help='Load path for pretrained fE')
 	parser.add_argument('--fn_load_path', type=str, default=None, help='Load path for pretrained fN')
 	parser.add_argument('--reconstruction_loss_weight', type=float, default=100.0, help='Lambda for I loss')
@@ -61,20 +61,27 @@ def main():
 	val_dataset = NYUUWDataset(test_path, args.label_path, mode='val')
 	test_dataset = NYUUWDataset(val_path, args.label_path, mode='test')
 
-	train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-	test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=True)
-	val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=True)
+	train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=8)
+	test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=8)
+	val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=8)
+	
 
-	if args.adv_loss:
-		nuisance_classifier = Classifier(args.num_classes).cuda()
-		nui_cls_req_grad = True
-		nuisance_classifier.train()
-		criterion_CE = nn.CrossEntropyLoss().cuda()
-		optimizer_nuisance = torch.optim.Adam(nuisance_classifier.parameters(), lr=args.learning_rate, weight_decay=1e-5)
+	# if args.adv_loss:
+	nuisance_classifier = Classifier(args.num_classes).cuda()
+	nui_cls_req_grad = True
+	nuisance_classifier.train()
+	criterion_CE = nn.CrossEntropyLoss().cuda()
+	optimizer_nuisance = torch.optim.Adam(nuisance_classifier.parameters(), lr=args.learning_rate, weight_decay=1e-5)
 
 	# Define models, criterion and optimizers
 	encoder = UNetEncoder(args.num_channels).cuda()
 	decoder = UNetDecoder(args.num_channels).cuda()
+	
+	if args.load_path is not None:
+		encoder.load_state_dict(torch.load(os.path.join(args.load_path, 'encoder_%d.pth'%args.start_epoch)))
+		decoder.load_state_dict(torch.load(os.path.join(args.load_path, 'decoder_%d.pth'%args.start_epoch)))
+		if os.path.exists(os.path.join(args.load_path, 'nuisance_%d.pth'%args.start_epoch)):
+			nuisance_classifier.load_state_dict(torch.load(os.path.join(args.load_path, 'nuisance_%d.pth'%args.start_epoch)))
 
 	criterion_MSE = nn.MSELoss().cuda()
 
@@ -98,8 +105,9 @@ def main():
 
 	val_ssim, val_acc = -1., -1. # initial SSIM and nuisance classification accuracy
 	
-	total_step = 0
 	epoch = args.start_epoch
+	steps_per_epoch = int(len(train_dataset)/args.batch_size)
+	total_step = epoch * steps_per_epoch
 	# Train only the encoder-decoder until up to a certain threshold
 	while val_ssim < args.fi_threshold:
 		
@@ -162,7 +170,7 @@ def main():
 	
 	start_epoch = epoch + 1
 	# main training loop when encoder-decoder works fine
-	for epoch in range(start_epoch, args.end_epoch):
+	for epoch in range(start_epoch, args.end_epoch+1):
 		status = 'Average decoder out SSIM: {}, average nuisance classification accuracy: {}\nCurrent SSIM threshold: {}, Current nuisance classification threshold: {}'.format(
 			val_ssim, val_acc, args.fi_threshold, args.fn_threshold)
 		print(status)
