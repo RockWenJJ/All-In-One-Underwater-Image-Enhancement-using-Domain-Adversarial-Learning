@@ -108,64 +108,64 @@ def main():
 	epoch = args.start_epoch
 	steps_per_epoch = int(len(train_dataset)/args.batch_size)
 	total_step = epoch * steps_per_epoch
-	# # Train only the encoder-decoder until up to a certain threshold
-	# while val_ssim < args.fi_threshold:
-	#
-	# 	status = 'Average decoder out SSIM: {}, average nuisance classification accuracy: {}\nCurrent SSIM threshold: {}, Current nuisance classification threshold: {}'.format(
-	# 		val_ssim, val_acc, args.fi_threshold, args.fn_threshold)
-	# 	print(status)
-	#
-	# 	ave_decoder_loss = 0.
-	# 	for idx, data in tqdm(enumerate(train_dataloader)):
-	# 		uw_img, cl_img, water_type, _ = data
-	# 		uw_img = Variable(uw_img).cuda()
-	# 		cl_img = Variable(cl_img, requires_grad=False).cuda()
-	#
-	# 		encoder_out, encoder_outs = encoder(uw_img)
-	# 		optimizer_encoder.zero_grad()
-	# 		decoder_out, decoder_loss = backward_reconstruction_loss(decoder, encoder_out, encoder_outs, cl_img, criterion_MSE, optimizer_decoder, args.reconstruction_loss_weight, retain_graph=args.adv_loss)
-	#
-	# 		# progress = "\tEpoch: {}\tIter: {}\tdecoder loss: {}".format(epoch, idx, decoder_loss.item())
-	# 		ave_decoder_loss += decoder_loss.item()
-	#
-	# 		optimizer_encoder.step()
-	#
-	# 		total_step += 1
-	# 		if idx % 50 == 0 and idx != 0:
-	# 			print("Epoch: {}\tIter: {}\tdecoder loss: {}".format(epoch, idx, ave_decoder_loss/50.))
-	# 			if args.wandb:
-	# 				wandb_logger.log({"train/decoder_loss":ave_decoder_loss/50.}, total_step)
-	# 			logger.add_scalar("train/decoder_loss", ave_decoder_loss/50., global_step=total_step)
-	# 			ave_decoder_loss = 0.
-	#
-	# 		if total_step % 1000 == 0 and args.wandb: # update images every 1000 iters
-	# 			fi_images = wandb.Image(decoder_out.cpu().data)
-	# 			uw_images = wandb.Image(uw_img.cpu().data)
-	# 			cl_images = wandb.Image(cl_img.cpu().data)
-	# 			save_dict = {"train/fI_images": fi_images,
-	# 						 "train/uw_images": uw_images,
-	# 						 "train/cl_images": cl_images}
-	#
-	# 			# print (progress)
-	# 			wandb_logger.log(save_dict, total_step)
-	#
-	# 	if epoch % args.save_interval == 0:
-	# 		torch.save(encoder.state_dict(), './checkpoints/{}/encoder_{}.pth'.format(args.name, epoch))
-	# 		torch.save(decoder.state_dict(), './checkpoints/{}/decoder_{}.pth'.format(args.name, epoch))
-	#
-	# 	epoch += 1
-	#
-	# 	val_ssim, val_psnr, val_mse, val_acc = compute_val_metrics(encoder, decoder, nuisance_classifier, val_dataloader, args.adv_loss)
-	# 	if args.wandb:
-	# 		wandb_logger.log({"val/ssim": val_ssim,
-	# 				   "val/psnr": val_psnr,
-	# 				   "val/mse": val_mse,
-	# 				   "val/acc": val_acc}, total_step)
-	# 	# log with tensorboard
-	# 	logger.add_scalar("val/ssim", val_ssim, global_step=total_step)
-	# 	logger.add_scalar("val/psnr", val_psnr, global_step=total_step)
-	# 	logger.add_scalar("val/mse", val_mse, global_step=total_step)
-	# 	logger.add_scalar("val/acc", val_acc, global_step=total_step)
+	# Train only the encoder-decoder until up to a certain threshold
+	while val_ssim < args.fi_threshold:
+
+		status = 'Average decoder out SSIM: {}, average nuisance classification accuracy: {}\nCurrent SSIM threshold: {}, Current nuisance classification threshold: {}'.format(
+			val_ssim, val_acc, args.fi_threshold, args.fn_threshold)
+		print(status)
+
+		ave_decoder_loss = 0.
+		for idx, data in tqdm(enumerate(train_dataloader)):
+			uw_img, cl_img, water_type, _ = data
+			uw_img = Variable(uw_img).cuda()
+			cl_img = Variable(cl_img, requires_grad=False).cuda()
+
+			encoder_out, encoder_outs = encoder(uw_img)
+			optimizer_encoder.zero_grad()
+			decoder_out, decoder_loss = backward_reconstruction_loss(decoder, encoder_out, encoder_outs, cl_img, criterion_MSE, optimizer_decoder, args.reconstruction_loss_weight, retain_graph=args.adv_loss)
+
+			# progress = "\tEpoch: {}\tIter: {}\tdecoder loss: {}".format(epoch, idx, decoder_loss.item())
+			ave_decoder_loss += decoder_loss.item()
+
+			optimizer_encoder.step()
+
+			total_step += 1
+			if idx % 50 == 0 and idx != 0:
+				print("Epoch: {}\tIter: {}\tdecoder loss: {}".format(epoch, idx, ave_decoder_loss/50.))
+				if args.wandb:
+					wandb_logger.log({"train/decoder_loss":ave_decoder_loss/50.}, total_step)
+				logger.add_scalar("train/decoder_loss", ave_decoder_loss/50., global_step=total_step)
+				ave_decoder_loss = 0.
+
+			if total_step % 1000 == 0 and args.wandb: # update images every 1000 iters
+				fi_images = wandb.Image(decoder_out.cpu().data)
+				uw_images = wandb.Image(uw_img.cpu().data)
+				cl_images = wandb.Image(cl_img.cpu().data)
+				save_dict = {"train/fI_images": fi_images,
+							 "train/uw_images": uw_images,
+							 "train/cl_images": cl_images}
+
+				# print (progress)
+				wandb_logger.log(save_dict, total_step)
+
+		if epoch % args.save_interval == 0:
+			torch.save(encoder.state_dict(), './checkpoints/{}/encoder_{}.pth'.format(args.name, epoch))
+			torch.save(decoder.state_dict(), './checkpoints/{}/decoder_{}.pth'.format(args.name, epoch))
+
+		epoch += 1
+
+		val_ssim, val_psnr, val_mse, val_acc = compute_val_metrics(encoder, decoder, nuisance_classifier, val_dataloader, args.adv_loss)
+		if args.wandb:
+			wandb_logger.log({"val/ssim": val_ssim,
+					   "val/psnr": val_psnr,
+					   "val/mse": val_mse,
+					   "val/acc": val_acc}, total_step)
+		# log with tensorboard
+		logger.add_scalar("val/ssim", val_ssim, global_step=total_step)
+		logger.add_scalar("val/psnr", val_psnr, global_step=total_step)
+		logger.add_scalar("val/mse", val_mse, global_step=total_step)
+		logger.add_scalar("val/acc", val_acc, global_step=total_step)
 		
 	
 	start_epoch = epoch + 1
