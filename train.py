@@ -106,8 +106,8 @@ def main():
 	val_ssim, val_acc = -1., -1. # initial SSIM and nuisance classification accuracy
 	
 	epoch = args.start_epoch
-	steps_per_epoch = int(len(train_dataset)/args.batch_size)
-	total_step = epoch * steps_per_epoch
+	steps_per_epoch = len(train_dataset)/args.batch_size
+	total_step = int(epoch * steps_per_epoch)
 	# Train only the encoder-decoder until up to a certain threshold
 	while val_ssim < args.fi_threshold:
 
