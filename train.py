@@ -12,7 +12,7 @@ import random
 from torchvision import models
 import numpy as np
 from models.networks import Classifier, UNetEncoder, UNetDecoder
-from utils import *
+from utils.utils import *
 import datetime
 import argparse
 import wandb
@@ -187,7 +187,7 @@ def main():
 			
 			encoder_out, encoder_outs = encoder(uw_img)
 			
-			if val_ssim < args.fi_threshold:
+			if val_ssim < args.fi_threshold - 0.1: #NOTE: allow a gap between the desired ssim and
 				optimizer_encoder.zero_grad()
 				decoder_out, decoder_loss = backward_reconstruction_loss(decoder, encoder_out, encoder_outs, cl_img,
 																		 criterion_MSE, optimizer_decoder,

@@ -165,9 +165,9 @@ def main():
                 dist = max_hori[i] * org_depth
 
                 T_x = np.ndarray((460, 620, 3))
-                T_x[:,:,0] = N_lambda[water_type][0] ** dist
-                T_x[:,:,1] = N_lambda[water_type][1] ** dist
-                T_x[:,:,2] = N_lambda[water_type][2] ** dist
+                T_x[:,:,0] = N_lambda[water_type][0] ** dist #B
+                T_x[:,:,1] = N_lambda[water_type][1] ** dist #G
+                T_x[:,:,2] = N_lambda[water_type][2] ** dist #R
                 # T_x = (T_x-T_x.min())/(T_x.max()-T_x.min())
 
                 B_lambda = np.ndarray((460, 620, 3))

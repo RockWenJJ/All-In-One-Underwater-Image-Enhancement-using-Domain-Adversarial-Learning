@@ -12,6 +12,7 @@ from skimage.metrics import structural_similarity as ssim
 from skimage.metrics import peak_signal_noise_ratio as psnr
 from tqdm import tqdm
 import numpy as np
+from utils.ssim_pytorch import ssim_torch
 
 def to_img(x):
     """
@@ -90,8 +91,10 @@ def backward_reconstruction_loss(decoder, encoder_out, encoder_outs, cl_img, cri
     """
     
     decoder_out = to_img(decoder(encoder_out, encoder_outs))
-    decoder_loss = criterion_MSE(decoder_out, cl_img) * reconstruct_loss_weight
+    mse_loss = criterion_MSE(decoder_out, cl_img) * reconstruct_loss_weight
+    ssim_loss = (1 - ssim_torch(decoder_out, cl_img)) * reconstruct_loss_weight / 10.
     optimizer_decoder.zero_grad()
+    decoder_loss = mse_loss + ssim_loss
     decoder_loss.backward(retain_graph=retain_graph)
     optimizer_decoder.step()
     
