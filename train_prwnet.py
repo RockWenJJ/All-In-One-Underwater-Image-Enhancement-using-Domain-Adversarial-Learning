@@ -99,24 +99,16 @@ def main():
 			uw_img, cl_img, water_type, _ = data
 			uw_img = Variable(uw_img).cuda()
 			cl_img = Variable(cl_img, requires_grad=False).cuda()
-			actual_target = Variable(water_type, requires_grad=False).cuda()
 			
-			outs = prw_net(uw_img)
+			out = prw_net(uw_img)
 			
 			optimizer.zero_grad()
 			# calculates output losses, including mse loss and ssim loss
-			mse_losses, ssim_losses = [], []
-		
-			for i in range(len(outs)):
-				mse_loss = criterion_mse(outs[i], cl_img) * args.reconstruction_loss_weight
-				ssim_loss = (1 - ssim_torch(outs[i], cl_img)) * args.reconstruction_loss_weight / 10.
-				mse_losses.append(mse_loss)
-				ssim_losses.append(ssim_loss)
-			mse_loss_all = sum(mse_losses)
-			ssim_loss_all = sum(ssim_losses)
-			total_loss = mse_loss_all + ssim_loss_all
-			ave_mse_loss += mse_loss_all.item()
-			ave_ssim_loss += ssim_loss_all.item()
+			mse_loss = criterion_mse(out, cl_img) * args.reconstruction_loss_weight
+			ssim_loss = (1 - ssim_torch(out, cl_img)) * args.reconstruction_loss_weight / 10.
+			total_loss = mse_loss + ssim_loss
+			ave_mse_loss += mse_loss.item()
+			ave_ssim_loss += ssim_loss.item()
 			total_loss.backward()
 			optimizer.step()
 			
@@ -132,14 +124,12 @@ def main():
 				logger.add_scalar("train/total_loss", (ave_mse_loss+ave_ssim_loss)/100., global_step=total_step)
 				ave_mse_loss, ave_ssim_loss = 0., 0.
 			
-			if total_step % 100 == 0 and args.wandb:
-				out0_images = wandb.Image(outs[0].cpu().data)
-				out1_images = wandb.Image(outs[1].cpu().data)
-				out2_images = wandb.Image(outs[1].cpu().data)
+			if total_step % 1000 == 0 and args.wandb:
+				out0_images = wandb.Image(out.cpu().data)
+				uw_images = wandb.Image(uw_img.cpu().data)
 				cl_images = wandb.Image(cl_img.cpu().data)
-				save_dict = {"train/out0_images": out0_images,
-							 "train/out1_images": out1_images,
-							 "train/out2_images": out2_images,
+				save_dict = {"train/out_images": out0_images,
+							 "train/uw_images": uw_images,
 							 "train/cl_images": cl_images}
 				
 				wandb_logger.log(save_dict, total_step)

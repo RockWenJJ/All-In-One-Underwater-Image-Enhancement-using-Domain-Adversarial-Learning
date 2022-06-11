@@ -504,5 +504,7 @@ class PRWNet(nn.Module):
         feat3 = self.en3(x3_img, feat2[1])
         feat3 = self.de3(feat3, feat2, x3_img)
         y3_pre = feat3[0]
+        
+        out = (y1_pre + y2_pre + y3_pre) / 3.0
 
-        return y3_pre, y2_pre, y1_pre
+        return out
