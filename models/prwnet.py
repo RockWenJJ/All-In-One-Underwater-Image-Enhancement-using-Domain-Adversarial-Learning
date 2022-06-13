@@ -459,11 +459,11 @@ class PRWNet(nn.Module):
         
         self.en1 = Waveletnet0()
         self.en2 = Waveletnet()
-        self.en3 = Waveletnet()
+        # self.en3 = Waveletnet() #TODO: only use two branches first
         
         self.de1 = Waveletnet0_de()
         self.de2 = Waveletnet_de()
-        self.de3 = Waveletnet_de()
+        # self.de3 = Waveletnet_de()
     
     def forward(self, x3_img):
         # Original-resolution Image for Stage 3
@@ -501,10 +501,10 @@ class PRWNet(nn.Module):
         feat2 = self.de2(feat2, feat1_cat, x3_img)
         y2_pre = feat2[0]
 
-        feat3 = self.en3(x3_img, feat2[1])
-        feat3 = self.de3(feat3, feat2, x3_img)
-        y3_pre = feat3[0]
+        # feat3 = self.en3(x3_img, feat2[1])
+        # feat3 = self.de3(feat3, feat2, x3_img)
+        # y3_pre = feat3[0]
         
-        out = (y1_pre + y2_pre + y3_pre) / 3.0
+        # out = (y1_pre + y2_pre + y3_pre) / 3.0
 
-        return out
+        return y1_pre, y2_pre

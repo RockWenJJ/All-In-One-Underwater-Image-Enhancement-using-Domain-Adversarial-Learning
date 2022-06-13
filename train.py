@@ -39,8 +39,8 @@ def config_parser():
 	parser.add_argument('--reconstruction_loss_weight', type=float, default=100.0, help='Lambda for I loss')
 	parser.add_argument('--nuisance_loss_weight',type=float, default=1.0, help='Lambda for N loss')
 	parser.add_argument('--adv_loss_weight', type=float, default=1.0, help='Lambda for adv loss')
-	parser.add_argument('--fi_threshold', type=float, default=0.9, help='Train encoder-decoder till this threshold')
-	parser.add_argument('--fn_threshold', type=float, default=0.8, help='Train nuisance classifier till this threshold')
+	parser.add_argument('--fi_threshold', type=float, default=0.95, help='Train encoder-decoder till this threshold')
+	parser.add_argument('--fn_threshold', type=float, default=0.75, help='Train nuisance classifier till this threshold')
 	parser.add_argument('--continue_train', type=bool, default=False, help='Continue training from start_epoch')
 	parser.add_argument('--neg_entropy', type=bool, default=True,
 				  help='Use KL divergence instead of cross entropy with uniform distribution')

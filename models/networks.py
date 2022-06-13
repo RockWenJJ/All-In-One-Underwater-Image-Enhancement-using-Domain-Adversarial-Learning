@@ -72,8 +72,11 @@ class Classifier(nn.Module):
             nn.Linear(4096, 1024),
             nn.BatchNorm1d(1024),
             nn.ReLU(True),
-            nn.Dropout(0.3),
-            nn.Linear(1024, num_classes)
+            nn.Linear(1024, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU(True),
+            # nn.Dropout(0.3),
+            nn.Linear(512, num_classes)
             )
 
     def forward(self, input):

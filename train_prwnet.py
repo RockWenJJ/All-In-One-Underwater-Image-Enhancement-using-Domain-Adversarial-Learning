@@ -92,20 +92,21 @@ def main():
 		print(status)
 		write_to_log(log_file_path, status)
 		
-		# ave_decoder_loss, decoder_loss_count = 0., 0
-		# ave_nuisance_loss, nuisance_loss_count = 0., 0
-		# ave_adv_loss, adv_loss_count = 0., 0
 		for idx, data in tqdm(enumerate(train_dataloader)):
 			uw_img, cl_img, water_type, _ = data
 			uw_img = Variable(uw_img).cuda()
 			cl_img = Variable(cl_img, requires_grad=False).cuda()
 			
-			out = prw_net(uw_img)
+			outs = prw_net(uw_img)
 			
 			optimizer.zero_grad()
 			# calculates output losses, including mse loss and ssim loss
-			mse_loss = criterion_mse(out, cl_img) * args.reconstruction_loss_weight
-			ssim_loss = (1 - ssim_torch(out, cl_img)) * args.reconstruction_loss_weight / 10.
+			mse_loss, ssim_loss = 0., 0.
+			for i in range(len(outs)):
+				mse_loss0 = criterion_mse(outs[i], cl_img) * args.reconstruction_loss_weight
+				ssim_loss0 = (1 - ssim_torch(outs[i], cl_img)) * args.reconstruction_loss_weight / 10.
+				mse_loss += mse_loss0
+				ssim_loss += ssim_loss0
 			total_loss = mse_loss + ssim_loss
 			ave_mse_loss += mse_loss.item()
 			ave_ssim_loss += ssim_loss.item()
@@ -125,10 +126,12 @@ def main():
 				ave_mse_loss, ave_ssim_loss = 0., 0.
 			
 			if total_step % 1000 == 0 and args.wandb:
-				out0_images = wandb.Image(out.cpu().data)
+				out0_images = wandb.Image(outs[0].cpu().data)
+				out1_images = wandb.Image(outs[1].cpu().data)
 				uw_images = wandb.Image(uw_img.cpu().data)
 				cl_images = wandb.Image(cl_img.cpu().data)
-				save_dict = {"train/out_images": out0_images,
+				save_dict = {"train/out0_images": out0_images,
+							 "train/out1_images": out1_images,
 							 "train/uw_images": uw_images,
 							 "train/cl_images": cl_images}
 				
