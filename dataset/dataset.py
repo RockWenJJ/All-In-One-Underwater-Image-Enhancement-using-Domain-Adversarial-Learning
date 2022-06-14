@@ -88,7 +88,7 @@ class UIEBDataset(Dataset):
     def __getitem__(self, index):
         uw_img = self.transform(Image.open(self.uw_images[index]))
 
-        return uw_img, None, None, os.path.basename(self.uw_images[index])
+        return uw_img, -1, -1, os.path.basename(self.uw_images[index])
 
     def __len__(self):
         return self.size

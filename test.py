@@ -60,6 +60,7 @@ def config_parser():
     parser.add_argument('--test_size', type=int, default=3000, help='Lambda for N loss')
     parser.add_argument('--fe_load_path', type=str, default=None, help='Load path for pretrained fN')
     parser.add_argument('--fi_load_path', type=str, default=None, help='Load path for pretrained fE')
+    parser.add_argument('--img_format', type=str, default='png')
     return parser
 
 
@@ -81,7 +82,7 @@ def main():
     fE.eval()
     fI.eval()
     
-    test_dataset = UIEBDataset(args.data_path)
+    test_dataset = UIEBDataset(args.data_path, img_format=args.img_format)
     
     batch_size = 1
     dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
