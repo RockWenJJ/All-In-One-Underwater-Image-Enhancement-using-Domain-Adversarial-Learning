@@ -63,6 +63,18 @@ class UNetDecoder(nn.Module):
 class Classifier(nn.Module):
     def __init__(self, num_classes):
         super(Classifier, self).__init__()
+        # self.classifier = nn.Sequential(
+        #     nn.Conv2d(512, 256, 4, stride=2, padding=1),
+        #     nn.BatchNorm2d(256),
+        #     nn.ReLU(True),
+        #     nn.MaxPool2d(2, stride=2),
+        #     Flatten(),
+        #     nn.Linear(4096, 1024),
+        #     nn.BatchNorm1d(1024),
+        #     nn.ReLU(True),
+        #     nn.Dropout(0.3),
+        #     nn.Linear(1024, num_classes)
+        # )
         self.classifier = nn.Sequential(
             nn.Conv2d(512, 256, 4, stride=2, padding=1),
             nn.BatchNorm2d(256),

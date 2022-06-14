@@ -85,6 +85,43 @@ def compute_val_metrics(fE, fI, fN, dataloader, no_adv_loss):
         dataloader), corr / len(dataloader)
 
 
+def compute_val_metrics2(fE, fI, dataloader):
+    """
+        Compute SSIM, PSNR scores for the validation set
+    """
+    
+    fE.eval()
+    fI.eval()
+    
+    mse_scores = []
+    ssim_scores = []
+    psnr_scores = []
+    corr = 0
+    
+    criterion_MSE = nn.MSELoss().cuda()
+    
+    for idx, data in tqdm(enumerate(dataloader)):
+        uw_img, cl_img,  _ = data
+        uw_img = Variable(uw_img).cuda()
+        cl_img = Variable(cl_img, requires_grad=False).cuda()
+        
+        fE_out, enc_outs = fE(uw_img)
+        fI_out = to_img(fI(fE_out, enc_outs))
+        
+        mse_scores.append(criterion_MSE(fI_out, cl_img).item())
+        
+        fI_out = (fI_out * 255).squeeze(0).cpu().data.numpy().transpose(1, 2, 0).astype(np.uint8)
+        cl_img = (cl_img * 255).squeeze(0).cpu().data.numpy().transpose(1, 2, 0).astype(np.uint8)
+        
+        ssim_scores.append(ssim(fI_out, cl_img, multichannel=True))
+        psnr_scores.append(psnr(cl_img, fI_out))
+    
+    fE.train()
+    fI.train()
+    
+    return sum(ssim_scores) / len(dataloader), sum(psnr_scores) / len(dataloader), sum(mse_scores) / len(
+        dataloader)
+
 def compute_prw_val_metrics(prwnet, dataloader):
     """
         Compute SSIM, PSNR scores for the validation set
